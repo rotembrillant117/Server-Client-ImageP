@@ -14,7 +14,7 @@ thread_mutex = threading.Lock()
 MAX_POOL = 20
 MIN_POOL = 5
 IMG_EXTENSIONS = {".PNG", ".jpg"}
-VID_EXTENSIONS = {".mov", ".mp4"}
+VID_EXTENSIONS = {".mp4"}
 OVERLOADED_MSG = "Server is overloaded, try again later..."
 INVALID_EXTENSION = "Didn't receive correct file type"
 BEGIN_SEND = "<BEGIN SEND>"
@@ -106,7 +106,20 @@ def handle_file_type(file_bytes, file_name, file_extension):
         # saves image to current directory
         cv2.imwrite(new_file_name, image)
     else:
-        pass
+        file = open(new_file_name, "wb")
+        file.write(file_bytes)
+        file.close()
+        cap = cv2.VideoCapture(new_file_name)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        vid_writer = cv2.VideoWriter("output.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height), isColor=False)
+        for fr_index in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
+            ret, frame = cap.read()
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            vid_writer.write(gray)
+        cap.release()
+        vid_writer.release()
     return new_file_name
 
 def send_file_to_client(client, file_name, file_extension):
