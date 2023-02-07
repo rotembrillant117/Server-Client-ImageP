@@ -2,7 +2,6 @@ import socket
 import sys
 import os
 import random
-from pathlib import Path
 LOCAL_HOST = "127.0.0.1"
 PORT = 2001
 MAX_MSG_SIZE = 1024
@@ -36,11 +35,9 @@ def start_client(file_path):
     f.close()
 
 def handle_file(file, client_socket):
-    rand = str(random.randint(0, 10000))
-    client_socket.send(rand.encode())
     data = file.read()
     client_socket.sendall(data)
-    client_socket.send(f"{FIN}_{rand}".encode())
+    client_socket.send(f"{FIN}".encode())
 
 
 
