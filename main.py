@@ -1,9 +1,7 @@
 import threading
 import sys
 import socket
-import os
-import cv2
-import numpy as np
+import Transformation
 
 LOCAL_HOST = "127.0.0.1"
 CUR_THREADS = 0
@@ -18,7 +16,13 @@ VID_EXTENSIONS = {".mp4"}
 OVERLOADED_MSG = "Server is overloaded, try again later..."
 INVALID_EXTENSION = "Didn't receive correct file type"
 BEGIN_SEND = "<BEGIN SEND>"
+GOT_METADATA = "<GOT METADATA>"
+GOT_FILE = "<GOT FILE>"
 FIN = "<FIN SEND>"
+GS = "Gray-Scale"
+PB = "Pyramid Blending"
+REQ_FILES = {GS: 1, PB: 2}
+
 
 
 def check_input():
@@ -64,28 +68,41 @@ def start_server(thread_pool):
 def handle_client(client, addr):
     print(f"got connection from: {addr}")
     global CUR_THREADS
-    data = client.recv(MAX_MSG_SIZE).decode()
-    file_name, file_size = data.rsplit('_', 1)
-    file_name, file_extension = os.path.splitext(file_name)
-    print(file_extension)
-    if file_extension in IMG_EXTENSIONS or file_extension in VID_EXTENSIONS:
-        client.send(BEGIN_SEND.encode())
-        handle_file(client, file_name, file_extension, int(file_size))
-    else:
-        client.send(INVALID_EXTENSION.encode())
+    # get request type
+    request_type = client.recv(MAX_MSG_SIZE).decode()
+    print(f"{request_type} {len(request_type)}")
+    num_files = REQ_FILES[request_type]
+    handle_request(request_type, num_files, client, addr)
+
     thread_mutex.acquire()
     CUR_THREADS -= 1
     print(CUR_THREADS)
     thread_mutex.release()
     client.close()
+def handle_request(request_type, num_files, client, addr):
+    file_names = []
+    files_bytes = []
+    files_extensions = []
+    client.send(BEGIN_SEND.encode())
+    for i in range(num_files):
+        file_info = client.recv(MAX_MSG_SIZE).decode()
+        file_name, file_extension, file_size = file_info.split("_")
+        print(file_name, file_extension, file_size)
+        files_extensions.append(file_extension)
+        client.send(f"{GOT_METADATA}".encode())
+        file_b = get_client_file(client, int(file_size))
+        files_bytes.append(file_b)
+        client.send(f"{GOT_FILE}".encode())
+        new_file_name = f"{file_name}{file_extension}"
+        file_names.append(new_file_name)
+    print(file_names)
+    print(files_extensions)
+    if request_type == GS:
+        transformation = Transformation.GrayScale(file_names, files_bytes, files_extensions)
+    else:
+        transformation = Transformation.GrayScale(file_names, files_bytes, files_extensions)
+    transformation.transform()
 
-def handle_file(client, file_name, file_extension, file_size):
-    file_bytes = get_client_file(client, file_size)
-    new_file_name = handle_file_type(file_bytes, file_name, file_extension)
-    # send_file_to_client(client, new_file_name, file_extension)
-    # file = open(f"{file_name}{file_extension}", "wb")
-    # file.write(file_bytes)
-    # file.close()
 def get_client_file(client, file_size):
     file_bytes = b""
     fin_msg = f"{FIN}".encode()
@@ -98,35 +115,10 @@ def get_client_file(client, file_size):
             break
     return file_bytes
 
-def handle_file_type(file_bytes, file_name, file_extension):
-    new_file_name = f"{file_name}{str(threading.get_ident())}{file_extension}"
-    if file_extension in IMG_EXTENSIONS:
-        image = np.asarray(bytearray(file_bytes), dtype="uint8")
-        image = cv2.imdecode(image, 0)
-        # saves image to current directory
-        cv2.imwrite(new_file_name, image)
-    else:
-        file = open(new_file_name, "wb")
-        file.write(file_bytes)
-        file.close()
-        cap = cv2.VideoCapture(new_file_name)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        vid_writer = cv2.VideoWriter("output.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height), isColor=False)
-        for fr_index in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
-            ret, frame = cap.read()
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            vid_writer.write(gray)
-        cap.release()
-        vid_writer.release()
-    return new_file_name
 
 def send_file_to_client(client, file_name, file_extension):
     pass
 
-def clean_file(file_name):
-    pass
 
 if __name__ == '__main__':
     thread_pool = check_input()
