@@ -1,12 +1,9 @@
 import customtkinter as tk
 from tkinter import messagebox
-import client
-IMG_EXTENSIONS = {".PNG", ".jpg"}
-VID_EXTENSIONS = {".mp4"}
-GS = "Gray-Scale"
-PB = "Pyramid Blending"
-import sys
+from client import handle_request
 import os
+from constants import IMG_EXTENSIONS, VID_EXTENSIONS, GS, PB
+
 
 class GuiApp(tk.CTk):
 
@@ -58,7 +55,7 @@ class GuiApp(tk.CTk):
             messagebox.showinfo(title="Error", message="Invalid File")
             return
         client_msg = [GS, [file_path] + file_info]
-        client.handle_request(client_msg)
+        handle_request(client_msg)
 
     def handle_pyr_blend(self):
         file_path_1 = self.pb_entry_1.get()
@@ -71,7 +68,7 @@ class GuiApp(tk.CTk):
             messagebox.showinfo(title="Error", message="Invalid File")
             return
         client_msg = [PB, [file_path_1] + file_info_1, [file_path_2] + file_info_2]
-        client.handle_request(client_msg)
+        handle_request(client_msg)
 
     def get_file_info(self, file_path):
         if not os.path.isfile(file_path):

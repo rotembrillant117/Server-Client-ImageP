@@ -2,30 +2,30 @@ import threading
 import sys
 import socket
 import Transformation
+import os
+import shutil
+from constants import *
 
 LOCAL_HOST = "127.0.0.1"
 CUR_THREADS = 0
 MAX_QUEUE = 5
-PORT = 2001
-MAX_MSG_SIZE = 1024
 thread_mutex = threading.Lock()
 MAX_POOL = 20
 MIN_POOL = 5
-IMG_EXTENSIONS = {".PNG", ".jpg"}
-VID_EXTENSIONS = {".mp4"}
 OVERLOADED_MSG = "Server is overloaded, try again later..."
 INVALID_EXTENSION = "Didn't receive correct file type"
-BEGIN_SEND = "<BEGIN SEND>"
 GOT_METADATA = "<GOT METADATA>"
-GOT_FILE = "<GOT FILE>"
-FIN = "<FIN SEND>"
-GS = "Gray-Scale"
-PB = "Pyramid Blending"
 REQ_FILES = {GS: 1, PB: 2}
+REQ_TYPES = {GS, PB}
+TYPE_TO_TRANS = {GS: Transformation.GrayScale, PB: Transformation.PyramidBlend}
 
 
 
 def check_input():
+    """
+    Checks the size of the thread pool that was given
+    :return: Size of thread pool if size is between 5-20, else False
+    """
     if len(sys.argv) != 2:
         print("didn't get thread pool size")
         return False
@@ -41,6 +41,12 @@ def check_input():
 
 
 def start_server(thread_pool):
+    """
+    Starts the server with a specific thread pool and establishes connections between clients. Each client is handled
+    by his own thread
+    :param thread_pool: The max amount of threads allowed
+    :return:
+    """
     try:
         listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error as e:
@@ -49,7 +55,6 @@ def start_server(thread_pool):
     listen_socket.bind((LOCAL_HOST, PORT))
     listen_socket.listen(MAX_QUEUE)
     global CUR_THREADS
-    # TODO: what to do if max threads are active but getting new connections?
     while True:
         print("Server listening...")
         client, addr = listen_socket.accept()
@@ -66,44 +71,64 @@ def start_server(thread_pool):
 
 
 def handle_client(client, addr):
+    """
+    This function handles a client request. Also makes a working directory for the current thread in which files will be
+    saved. When client request process is complete, the result will be sent to the client and later the thread working
+    directory will be deleted. Finally, the current working threads will be updated, and server-client connection
+    terminated
+    :param client: client socket connection
+    :param addr: client address
+    :return:
+    """
     print(f"got connection from: {addr}")
     global CUR_THREADS
-    # get request type
     request_type = client.recv(MAX_MSG_SIZE).decode()
-    print(f"{request_type} {len(request_type)}")
+    if request_type not in REQ_TYPES:
+        return
     num_files = REQ_FILES[request_type]
-    handle_request(request_type, num_files, client, addr)
+    cwd = os.getcwd()
+    thread_dir = os.path.join(cwd, str(threading.get_ident()))
+    os.mkdir(thread_dir)
+    handle_request(request_type, num_files, client, thread_dir)
+    shutil.rmtree(thread_dir)
 
     thread_mutex.acquire()
     CUR_THREADS -= 1
     print(CUR_THREADS)
     thread_mutex.release()
     client.close()
-def handle_request(request_type, num_files, client, addr):
-    file_names = []
+def handle_request(request_type, num_files, client, thread_dir):
+    """
+    This function processes the client request-type
+    :param request_type: the client request type
+    :param num_files: the expected files to receive
+    :param client: client socket
+    :param thread_dir: thread working dir
+    :return:
+    """
+    new_file_names = []
     files_bytes = []
     files_extensions = []
     client.send(BEGIN_SEND.encode())
     for i in range(num_files):
         file_info = client.recv(MAX_MSG_SIZE).decode()
         file_name, file_extension, file_size = file_info.split("_")
-        print(file_name, file_extension, file_size)
         files_extensions.append(file_extension)
         client.send(f"{GOT_METADATA}".encode())
-        file_b = get_client_file(client, int(file_size))
-        files_bytes.append(file_b)
+        files_bytes.append(get_client_file(client, int(file_size)))
         client.send(f"{GOT_FILE}".encode())
-        new_file_name = f"{file_name}{file_extension}"
-        file_names.append(new_file_name)
-    print(file_names)
-    print(files_extensions)
-    if request_type == GS:
-        transformation = Transformation.GrayScale(file_names, files_bytes, files_extensions)
-    else:
-        transformation = Transformation.GrayScale(file_names, files_bytes, files_extensions)
-    transformation.transform()
+        new_file_names.append(f"{file_name}{file_extension}")
+    transformation = TYPE_TO_TRANS[request_type](new_file_names, files_bytes, files_extensions, thread_dir)
+    f_to_send, f_to_send_extension = transformation.transform()
+    send_file_to_client(client, f_to_send, os.path.join(thread_dir, f_to_send), f_to_send_extension)
 
 def get_client_file(client, file_size):
+    """
+    This function gets a file sent from the client
+    :param client: client socket
+    :param file_size: the expected file size
+    :return: file bytes
+    """
     file_bytes = b""
     fin_msg = f"{FIN}".encode()
     fin_len = len(fin_msg)
@@ -116,8 +141,25 @@ def get_client_file(client, file_size):
     return file_bytes
 
 
-def send_file_to_client(client, file_name, file_extension):
-    pass
+def send_file_to_client(client, file_name, file_location, file_extension):
+    """
+    This function sends the output file (after completing the client request) to the client
+    :param client: client socket
+    :param file_name: name of output file
+    :param file_location: location of output file
+    :param file_extension: extension of output file (currently not in use, maybe of use in the future)
+    :return:
+    """
+    file_size = os.path.getsize(file_location)
+    client.send(f"{REQUEST_PROCESSED}".encode())
+    client.recv(MAX_MSG_SIZE).decode()
+    client.send(f"Client{file_name}_{file_size}".encode())
+    f = open(file_location, 'rb')
+    data = f.read()
+    f.close()
+    client.sendall(data)
+    client.send(f"{FIN}".encode())
+    client.recv(MAX_MSG_SIZE).decode() # GOT FILE
 
 
 if __name__ == '__main__':
@@ -125,4 +167,3 @@ if __name__ == '__main__':
     if thread_pool:
         start_server(thread_pool)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
