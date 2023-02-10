@@ -1,6 +1,6 @@
 LOCAL_HOST = "127.0.0.1"
 PORT = 2001
-MAX_MSG_SIZE = 8192
+MAX_MSG_SIZE = 1024
 IMG_EXTENSIONS = {".PNG", ".jpg"}
 VID_EXTENSIONS = {".mp4"}
 GS = "Gray-Scale"
