@@ -109,16 +109,29 @@ def handle_request(request_type, num_files, client, thread_dir):
     files_extensions = []
     client.send(BEGIN_SEND.encode())
     for i in range(num_files):
-        file_info = client.recv(MAX_MSG_SIZE).decode()
-        file_name, file_extension, file_size = file_info.split("_")
+        file_name, file_extension, file_size = get_meta_data(client)
         files_extensions.append(file_extension)
-        client.send(GOT_METADATA.encode())
         files_bytes.append(get_client_file(client, int(file_size)))
         client.send(GOT_FILE.encode())
         new_file_names.append(f"{file_name}{file_extension}")
     transformation = TYPE_TO_TRANS[request_type](new_file_names, files_bytes, files_extensions, thread_dir)
     f_to_send, f_to_send_extension = transformation.transform()
     send_file_to_client(client, f_to_send, os.path.join(thread_dir, f_to_send), f_to_send_extension)
+
+def get_meta_data(client):
+    """
+    This function gets the meta-data of a file from the client
+    :param client: client socket
+    :return: file_name, file_extension, file_size
+    """
+    file_name = client.recv(MAX_MSG_SIZE).decode()
+    client.send(GOT_METADATA.encode())
+    file_extension = client.recv(MAX_MSG_SIZE).decode()
+    client.send(GOT_METADATA.encode())
+    file_size = int(client.recv(MAX_MSG_SIZE).decode())
+    client.send(GOT_METADATA.encode())
+    return file_name, file_extension, file_size
+
 
 def get_client_file(client, file_size):
     """
@@ -138,6 +151,18 @@ def get_client_file(client, file_size):
             break
     return file_bytes
 
+def send_meta_data(client, file_name, file_size):
+    """
+    This function sends the meta-data of the output file to the client
+    :param client: client socket
+    :param file_name: the file name
+    :param file_size: the file size
+    :return:
+    """
+    client.send(file_name.encode())
+    client.recv(MAX_MSG_SIZE).decode() # GOT METADATA
+    client.send(f"{file_size}".encode())
+    client.recv(MAX_MSG_SIZE).decode() # GOT METADATA
 
 def send_file_to_client(client, file_name, file_location, file_extension):
     """
@@ -150,9 +175,8 @@ def send_file_to_client(client, file_name, file_location, file_extension):
     """
     file_size = os.path.getsize(file_location)
     client.send(REQUEST_PROCESSED.encode())
-    client.recv(MAX_MSG_SIZE).decode()
-    client.send(f"Client{file_name}_{file_size}".encode())
-    client.recv(MAX_MSG_SIZE).decode() # GOT_METADATA
+    client.recv(MAX_MSG_SIZE).decode() # BEGIN SEND
+    send_meta_data(client, file_name, file_size)
     f = open(file_location, 'rb')
     data = f.read()
     f.close()

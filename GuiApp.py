@@ -6,6 +6,9 @@ from constants import IMG_EXTENSIONS, VID_EXTENSIONS, GS, PB
 
 
 class GuiApp(tk.CTk):
+    """
+    A simple Gui app that can run client.py
+    """
 
     def __init__(self):
         super().__init__()
@@ -37,6 +40,10 @@ class GuiApp(tk.CTk):
         self.pb_entry_2.grid(row=2, column=0, padx=20, pady=(20, 10))
 
     def get_input(self):
+        """
+        This function gets the current tab that is selected
+        :return:
+        """
         cur_tab = self.tabview.get()
         if cur_tab == GS:
             self.handle_gray_scale()
@@ -44,6 +51,10 @@ class GuiApp(tk.CTk):
             self.handle_pyr_blend()
 
     def handle_gray_scale(self):
+        """
+        This function handles a Gray-Scale request
+        :return:
+        """
         cur_menu = self.gs_menu.get()
         if cur_menu == ".mp4 file":
             expected_extensions = VID_EXTENSIONS
@@ -58,6 +69,10 @@ class GuiApp(tk.CTk):
         handle_request(client_msg)
 
     def handle_pyr_blend(self):
+        """
+        This function handels a Pyramid Blending request
+        :return:
+        """
         file_path_1 = self.pb_entry_1.get()
         file_path_2 = self.pb_entry_2.get()
 
@@ -71,6 +86,11 @@ class GuiApp(tk.CTk):
         handle_request(client_msg)
 
     def get_file_info(self, file_path):
+        """
+        This function retrieves file information
+        :param file_path: the path to the file
+        :return:
+        """
         if not os.path.isfile(file_path):
             return []
         file_size = os.path.getsize(file_path)
@@ -79,6 +99,12 @@ class GuiApp(tk.CTk):
         return [file_name, file_extension, file_size]
 
     def check_file_info(self, file_info, expected_extensions):
+        """
+        This function checks the validity of the file information
+        :param file_info:
+        :param expected_extensions:
+        :return:
+        """
         if len(file_info) != 3:
             return False
         if file_info[1] not in expected_extensions or len(file_info[0]) == 0:

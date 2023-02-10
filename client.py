@@ -1,5 +1,7 @@
 import socket
 from constants import *
+import sys
+import os
 
 
 def start_client(request_type, files, file_infos):
@@ -39,15 +41,34 @@ def send_files(files, file_infos, client_socket):
     """
     for i in range(len(files)):
         cur_info = file_infos[i]
-        msg = f"{cur_info[0]}_{cur_info[1]}_{cur_info[2]}"
-        client_socket.send(msg.encode())
-        print(client_socket.recv(MAX_MSG_SIZE).decode()) # got METADATA
+        send_meta_data(client_socket, cur_info)
         data = files[i].read()
         files[i].close()
         client_socket.sendall(data)
         client_socket.send(FIN.encode())
         print(client_socket.recv(MAX_MSG_SIZE).decode()) # got FILE
+def send_meta_data(client_socket, files_info):
+    """
+    This function sends the meta-data of the files
+    :param client_socket: the client socket
+    :param files_info: the meta-data to send
+    :return:
+    """
+    for i in range(len(files_info)):
+        client_socket.send(f"{files_info[i]}".encode())
+        client_socket.recv(MAX_MSG_SIZE).decode()
 
+def get_meta_data(client_socket):
+    """
+    This function gets the meta-data from the output file that was created by the server
+    :param client_socket: the client socket
+    :return: file_name, file_size
+    """
+    file_name = client_socket.recv(MAX_MSG_SIZE).decode()
+    client_socket.send(GOT_METADATA.encode())
+    file_size = int(client_socket.recv(MAX_MSG_SIZE).decode())
+    client_socket.send(GOT_METADATA.encode())
+    return file_name, file_size
 def receive_server_file(client_socket):
     """
     This function receives the output file from the server and saves
@@ -56,8 +77,7 @@ def receive_server_file(client_socket):
     """
     print(client_socket.recv(MAX_MSG_SIZE).decode())
     client_socket.send(BEGIN_SEND.encode())
-    file_name, file_size = client_socket.recv(MAX_MSG_SIZE).decode().split("_")
-    client_socket.send(GOT_METADATA.encode())
+    file_name, file_size = get_meta_data(client_socket)
     file_bytes = b""
     fin_msg = FIN.encode()
     fin_len = len(fin_msg)
@@ -89,6 +109,7 @@ def get_files(file_paths):
             return []
     return files
 
+
 def handle_request(request_info):
     """
     This function handles a request from a client to the server
@@ -109,4 +130,10 @@ def handle_request(request_info):
     return start_client(request_type, files, file_infos)
 
 if __name__ == '__main__':
+    # file_path = sys.argv[1]
+    # file_size = os.path.getsize(file_path)
+    # file_name = "VID-20230118-WA0000"
+    # file_extension = ".mp4"
+    # request = [GS, [file_path, file_name, file_extension, file_size]]
+    # handle_request(request)
     pass
