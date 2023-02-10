@@ -18,7 +18,7 @@ def start_client(request_type, files, file_infos):
         return False
     client_socket.connect((LOCAL_HOST, PORT))
 
-    client_socket.send(f"{request_type}".encode())
+    client_socket.send(request_type.encode())
     data = client_socket.recv(MAX_MSG_SIZE).decode()
     if data != BEGIN_SEND:
         return False
@@ -45,7 +45,7 @@ def send_files(files, file_infos, client_socket):
         data = files[i].read()
         files[i].close()
         client_socket.sendall(data)
-        client_socket.send(f"{FIN}".encode())
+        client_socket.send(FIN.encode())
         print(client_socket.recv(MAX_MSG_SIZE).decode()) # got FILE
 
 def receive_server_file(client_socket):
@@ -55,10 +55,11 @@ def receive_server_file(client_socket):
     :return:
     """
     print(client_socket.recv(MAX_MSG_SIZE).decode())
-    client_socket.send(f"{BEGIN_SEND}".encode())
+    client_socket.send(BEGIN_SEND.encode())
     file_name, file_size = client_socket.recv(MAX_MSG_SIZE).decode().split("_")
+    client_socket.send(GOT_METADATA.encode())
     file_bytes = b""
-    fin_msg = f"{FIN}".encode()
+    fin_msg = FIN.encode()
     fin_len = len(fin_msg)
     while True:
         data = client_socket.recv(MAX_MSG_SIZE)
@@ -66,7 +67,7 @@ def receive_server_file(client_socket):
         if file_bytes[-fin_len:] == fin_msg:
             file_bytes = file_bytes[:int(file_size)]
             break
-    client_socket.send(f"{GOT_FILE}".encode())
+    client_socket.send(GOT_FILE.encode())
     file = open(file_name, "wb")
     file.write(file_bytes)
     file.close()
