@@ -6,7 +6,6 @@ import os
 import shutil
 from constants import *
 
-LOCAL_HOST = "127.0.0.1"
 CUR_THREADS = 0
 MAX_QUEUE = 5
 thread_mutex = threading.Lock()
@@ -14,7 +13,6 @@ MAX_POOL = 20
 MIN_POOL = 5
 OVERLOADED_MSG = "Server is overloaded, try again later..."
 INVALID_EXTENSION = "Didn't receive correct file type"
-GOT_METADATA = "<GOT METADATA>"
 REQ_FILES = {GS: 1, PB: 2}
 REQ_TYPES = {GS, PB}
 TYPE_TO_TRANS = {GS: Transformation.GrayScale, PB: Transformation.PyramidBlend}
@@ -114,9 +112,9 @@ def handle_request(request_type, num_files, client, thread_dir):
         file_info = client.recv(MAX_MSG_SIZE).decode()
         file_name, file_extension, file_size = file_info.split("_")
         files_extensions.append(file_extension)
-        client.send(f"{GOT_METADATA}".encode())
+        client.send(GOT_METADATA.encode())
         files_bytes.append(get_client_file(client, int(file_size)))
-        client.send(f"{GOT_FILE}".encode())
+        client.send(GOT_FILE.encode())
         new_file_names.append(f"{file_name}{file_extension}")
     transformation = TYPE_TO_TRANS[request_type](new_file_names, files_bytes, files_extensions, thread_dir)
     f_to_send, f_to_send_extension = transformation.transform()
@@ -130,7 +128,7 @@ def get_client_file(client, file_size):
     :return: file bytes
     """
     file_bytes = b""
-    fin_msg = f"{FIN}".encode()
+    fin_msg = FIN.encode()
     fin_len = len(fin_msg)
     while True:
         data = client.recv(MAX_MSG_SIZE)
@@ -151,14 +149,15 @@ def send_file_to_client(client, file_name, file_location, file_extension):
     :return:
     """
     file_size = os.path.getsize(file_location)
-    client.send(f"{REQUEST_PROCESSED}".encode())
+    client.send(REQUEST_PROCESSED.encode())
     client.recv(MAX_MSG_SIZE).decode()
     client.send(f"Client{file_name}_{file_size}".encode())
+    client.recv(MAX_MSG_SIZE).decode() # GOT_METADATA
     f = open(file_location, 'rb')
     data = f.read()
     f.close()
     client.sendall(data)
-    client.send(f"{FIN}".encode())
+    client.send(FIN.encode())
     client.recv(MAX_MSG_SIZE).decode() # GOT FILE
 
 
