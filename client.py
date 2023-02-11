@@ -2,6 +2,7 @@ import socket
 from constants import *
 import sys
 import os
+import random
 
 
 def start_client(request_type, files, file_infos):
@@ -47,6 +48,8 @@ def send_files(files, file_infos, client_socket):
         client_socket.sendall(data)
         client_socket.send(FIN.encode())
         print(client_socket.recv(MAX_MSG_SIZE).decode()) # got FILE
+
+
 def send_meta_data(client_socket, files_info):
     """
     This function sends the meta-data of the files
@@ -58,17 +61,20 @@ def send_meta_data(client_socket, files_info):
         client_socket.send(f"{files_info[i]}".encode())
         client_socket.recv(MAX_MSG_SIZE).decode()
 
+
 def get_meta_data(client_socket):
     """
     This function gets the meta-data from the output file that was created by the server
     :param client_socket: the client socket
     :return: file_name, file_size
     """
-    file_name = client_socket.recv(MAX_MSG_SIZE).decode()
+    file_extension = client_socket.recv(MAX_MSG_SIZE).decode()
     client_socket.send(GOT_METADATA.encode())
     file_size = int(client_socket.recv(MAX_MSG_SIZE).decode())
     client_socket.send(GOT_METADATA.encode())
-    return file_name, file_size
+    return file_extension, file_size
+
+
 def receive_server_file(client_socket):
     """
     This function receives the output file from the server and saves
@@ -77,7 +83,7 @@ def receive_server_file(client_socket):
     """
     print(client_socket.recv(MAX_MSG_SIZE).decode())
     client_socket.send(BEGIN_SEND.encode())
-    file_name, file_size = get_meta_data(client_socket)
+    file_extension, file_size = get_meta_data(client_socket)
     file_bytes = b""
     fin_msg = FIN.encode()
     fin_len = len(fin_msg)
@@ -88,7 +94,7 @@ def receive_server_file(client_socket):
             file_bytes = file_bytes[:int(file_size)]
             break
     client_socket.send(GOT_FILE.encode())
-    file = open(file_name, "wb")
+    file = open(f"{random.randint(1,10000)}{file_extension}", "wb")
     file.write(file_bytes)
     file.close()
 
@@ -110,19 +116,19 @@ def get_files(file_paths):
     return files
 
 
-def handle_request(request_info):
+def handle_request(request_type, file_info):
     """
-    This function handles a request from a client to the server
-    :param request_info: example of request [PB, [file_path_1, file_name_1, file_extension_1, file_size_1],
-    [file_path_2, file_name_2, file_extension_2, file_size_2]
+    This function handles a client request
+    :param request_type: the request type
+    :param file_info: the file info, for example: [[file_path_1, file_extension_1, file_size_1],
+    [file_path_2, file_extension_2, file_size_2]]
     :return:
     """
-    request_type = request_info[0]
     file_paths = []
     file_infos = []
-    for i in range(1, len(request_info)):
-        file_paths.append(request_info[i][0])
-        file_infos.append(request_info[i][1:])
+    for i in range(len(file_info)):
+        file_paths.append(file_info[i][0])
+        file_infos.append(file_info[i][1:])
     files = get_files(file_paths)
     if len(files) == 0:
         print("Couldn't open files")

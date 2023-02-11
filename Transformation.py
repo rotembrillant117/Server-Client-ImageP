@@ -43,8 +43,9 @@ class GrayScale(Transformation):
         image = np.asarray(bytearray(self.files_bytes[0]), dtype="uint8")
         image = cv2.imdecode(image, 0)
         # saves image to current directory
-        cv2.imwrite(os.path.join(self.directory, self.file_names[0]), image)
-        return self.file_names[0], self.files_extensions[0]
+        f_to_send_path = os.path.join(self.directory, self.file_names[0])
+        cv2.imwrite(f_to_send_path, image)
+        return f_to_send_path, self.files_extensions[0]
 
     def handle_mp4(self):
         """
@@ -56,12 +57,12 @@ class GrayScale(Transformation):
         file.write(self.files_bytes[0])
         file.close()
         new_name = f"output{self.file_names[0]}"
-        directory = os.path.join(self.directory, new_name)
+        f_to_send_path = os.path.join(self.directory, new_name)
         cap = cv2.VideoCapture(file_to_open)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        vid_writer = cv2.VideoWriter(directory, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height),
+        vid_writer = cv2.VideoWriter(f_to_send_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height),
                                      isColor=False)
         for fr_index in range(int(cap.get(cv2.CAP_PROP_FRAME_COUNT))):
             ret, frame = cap.read()
@@ -69,7 +70,7 @@ class GrayScale(Transformation):
             vid_writer.write(gray)
         cap.release()
         vid_writer.release()
-        return new_name, self.files_extensions[0]
+        return f_to_send_path, self.files_extensions[0]
 
 
 class PyramidBlend(Transformation):
@@ -94,8 +95,9 @@ class PyramidBlend(Transformation):
         laplac_pyr_1 = self.create_laplacian_pyramid(gauss_pyr_1)
         laplac_pyr_2 = self.create_laplacian_pyramid(gauss_pyr_2)
         blended = self.create_blended(laplac_pyr_1, laplac_pyr_2)
-        cv2.imwrite(os.path.join(self.directory, self.file_names[0]), blended)
-        return self.file_names[0], self.files_extensions[0]
+        f_to_send_path = os.path.join(self.directory, self.file_names[0])
+        cv2.imwrite(f_to_send_path, blended)
+        return f_to_send_path, self.files_extensions[0]
 
     def create_gaussian_pyramid(self, image):
         """
@@ -109,6 +111,7 @@ class PyramidBlend(Transformation):
             layer = cv2.pyrDown(layer)
             gaussian_pyramid.append(layer)
         return gaussian_pyramid
+
     def create_laplacian_pyramid(self, gaussian_pyramid):
         """
         This functon creates the Laplacian pyramid from the given Gaussian pyramid
