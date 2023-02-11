@@ -60,30 +60,24 @@ class GuiApp(tk.CTk):
             expected_extensions = VID_EXTENSIONS
         else:
             expected_extensions = IMG_EXTENSIONS
-        file_path = self.gs_entry.get()
-        file_info = self.get_file_info(file_path)
+        file_info = self.get_file_info(self.gs_entry.get())
         if not self.check_file_info(file_info, expected_extensions):
             messagebox.showinfo(title="Error", message="Invalid File")
             return
-        client_msg = [GS, [file_path] + file_info]
-        handle_request(client_msg)
+        handle_request(GS, [file_info])
 
     def handle_pyr_blend(self):
         """
         This function handels a Pyramid Blending request
         :return:
         """
-        file_path_1 = self.pb_entry_1.get()
-        file_path_2 = self.pb_entry_2.get()
-
-        file_info_1 = self.get_file_info(file_path_1)
-        file_info_2 = self.get_file_info(file_path_2)
+        file_info_1 = self.get_file_info(self.pb_entry_1.get())
+        file_info_2 = self.get_file_info(self.pb_entry_2.get())
         if not self.check_file_info(file_info_1, IMG_EXTENSIONS) or \
                 not self.check_file_info(file_info_2, IMG_EXTENSIONS):
             messagebox.showinfo(title="Error", message="Invalid File")
             return
-        client_msg = [PB, [file_path_1] + file_info_1, [file_path_2] + file_info_2]
-        handle_request(client_msg)
+        handle_request(PB, [file_info_1, file_info_2])
 
     def get_file_info(self, file_path):
         """
@@ -96,7 +90,7 @@ class GuiApp(tk.CTk):
         file_size = os.path.getsize(file_path)
         file_name = os.path.basename(file_path)
         file_name, file_extension = os.path.splitext(file_name)
-        return [file_name, file_extension, file_size]
+        return [file_path, file_extension, file_size]
 
     def check_file_info(self, file_info, expected_extensions):
         """
@@ -107,7 +101,7 @@ class GuiApp(tk.CTk):
         """
         if len(file_info) != 3:
             return False
-        if file_info[1] not in expected_extensions or len(file_info[0]) == 0:
+        if file_info[1] not in expected_extensions:
             return False
         return True
 
