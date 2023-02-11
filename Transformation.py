@@ -17,7 +17,7 @@ class Transformation(ABC):
     def transform(self):
         """
         Performs the transformation on the specified files
-        :return: tuple of (output_file, output_file extension)
+        :return: tuple of (output_file_path, output_file extension)
         """
         pass
 
@@ -82,14 +82,7 @@ class PyramidBlend(Transformation):
         super().__init__(file_names, files_bytes, files_extensions, directory)
 
     def transform(self):
-        for i in range(2):
-            file = open(os.path.join(self.directory, self.file_names[i]), "wb")
-            file.write(self.files_bytes[i])
-            file.close()
-        img1 = cv2.imread(os.path.join(self.directory, self.file_names[0]))
-        img1 = cv2.resize(img1, (1000, 1000))
-        img2 = cv2.imread(os.path.join(self.directory, self.file_names[1]))
-        img2 = cv2.resize(img2, (1000, 1000))
+        img1, img2 = self.get_images()
         gauss_pyr_1 = self.create_gaussian_pyramid(img1)
         gauss_pyr_2 = self.create_gaussian_pyramid(img2)
         laplac_pyr_1 = self.create_laplacian_pyramid(gauss_pyr_1)
@@ -98,6 +91,21 @@ class PyramidBlend(Transformation):
         f_to_send_path = os.path.join(self.directory, self.file_names[0])
         cv2.imwrite(f_to_send_path, blended)
         return f_to_send_path, self.files_extensions[0]
+    def get_images(self):
+        """
+        This functions saves and resizes the images
+        :return: img1, img2
+        """
+        resize = 1000
+        for i in range(2):
+            file = open(os.path.join(self.directory, self.file_names[i]), "wb")
+            file.write(self.files_bytes[i])
+            file.close()
+        img1 = cv2.imread(os.path.join(self.directory, self.file_names[0]))
+        img1 = cv2.resize(img1, (resize, resize))
+        img2 = cv2.imread(os.path.join(self.directory, self.file_names[1]))
+        img2 = cv2.resize(img2, (resize, resize))
+        return img1, img2
 
     def create_gaussian_pyramid(self, image):
         """
